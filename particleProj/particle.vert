@@ -1,26 +1,15 @@
 #version 330                                    
 uniform float u_time;                                
 uniform vec3 u_centerPosition;                       
-layout(location = 0) in float a_lifetime;            
-layout(location = 1) in vec3 a_startPosition;        
-layout(location = 2) in vec3 a_endPosition;          
-out float v_lifetime;
-out vec4 vertexColor;
+layout(location = 0) in vec3 a_Position;        
+layout(location = 1) in vec3 a_Velocity;    
+
+out vec3 vPos;
 
 void main()                                          
-{                                                    
-    if ( u_time <= a_lifetime )                        
-    {                                                  
-    gl_Position.xyz = a_startPosition +              
-                        (u_time * a_endPosition);      
-    gl_Position.xyz += u_centerPosition;        
-    gl_Position.w = 1.0;                             
-    }                                                  
-    else                                               
-    {                                                  
-        gl_Position = vec4( -1000, -1000, 0, 0 );       
-    }                                                  
-    v_lifetime = 1.0 - ( u_time / a_lifetime );        
-    v_lifetime = clamp ( v_lifetime, 0.0, 1.0 );       
-    gl_PointSize = ( v_lifetime * v_lifetime ) * 40.0; 
+{                                                                                             
+    gl_Position.xyz = a_Position + u_time * a_Velocity;      
+    gl_Position.w = 1.0;                                                                           
+    gl_PointSize = ( u_time * u_time ) * 40.0;
+    vPos = a_Position;
 }

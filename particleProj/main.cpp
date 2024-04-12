@@ -17,40 +17,39 @@ const unsigned int SCR_HEIGHT = 600;
 const int numParticles = 1000;
 const int particleSize = 7;
 
+// Particle VBOs
+GLuint particleVBOs[2];
+
+double getCurrentTime() {
+	return glfwGetTime();
+}
+
 
 struct Particle {
-	float lifeTime;
-	glm::vec3 startPos;
-	glm::vec3 endPos;
+	glm::vec3 Pos;
+	glm::vec3 Vel;
 };
 
 std::vector<Particle> generateParticleData() {
 	std::vector<Particle> particles;
 	particles.resize(numParticles);
 
-	// start position
+	// position
 	for (int i = 0; i < numParticles; ++i) {
-		// range [-1,1]
-		float x = ((float)(rand() % 10000) / 40000.0f) - 0.125f;
-		float y = ((float)(rand() % 10000) / 40000.0f) - 0.125f;
-		float z = ((float)(rand() % 10000) / 40000.0f) - 0.125f;
+		float x = ((float)(rand() % 10000) / 4000.0f) - 1.f;
+		float y = ((float)(rand() % 10000) / 4000.0f) - 1.f;
+		float z = ((float)(rand() % 10000) / 4000.0f) - 1.f;
 		glm::vec3 position = glm::vec3(x, y, z);
-		particles[i].startPos = position;
+		particles[i].Pos = position;
 	}
 
-	// end position
+	// velocity
 	for (int i = 0; i < numParticles; ++i) {
-		// range [-1,1]
-		float x = ((float)(rand() % 10000) / 5000.0f) - 1.0f;
-		float y = ((float)(rand() % 10000) / 5000.0f) - 1.0f;
-		float z = ((float)(rand() % 10000) / 5000.0f) - 1.0f;
-		glm::vec3 position = glm::vec3(x, y, z);
-		particles[i].endPos = position;
-	}
-
-	// Lifetime of particle
-	for (int i = 0; i < numParticles; ++i) {
-		particles[i].lifeTime = ((float)(rand() % 10000) / 10000.0f);
+		float x = ((float)(rand() % 10000) / 40000.0f);
+		float y = ((float)(rand() % 10000) / 40000.0f);
+		float z = ((float)(rand() % 10000) / 40000.0f);
+		glm::vec3 velocity = glm::vec3(x, y, z);
+		particles[i].Vel = velocity;
 	}
 
 	return particles;
@@ -83,41 +82,34 @@ int main()
 	}
 
 	// build and compile our shader program
-	Shader particleShader("particle.vert", "particle.frag");
+	const char* feedbackVaryings[1] =
+	{
+	   "vPos",
+	};
+	Shader particleShader("particle.vert", "particle.frag", feedbackVaryings,1);
 
-	//-----------------------------------------------------------
-	// 生成粒子数据
+	// generate particle data
 	std::vector<Particle> particles = generateParticleData();
+	unsigned int particleVAO;
+	glGenBuffers(2, &particleVBOs[0]);
 
-	unsigned int particleVBO, particleVAO;
-	glGenVertexArrays(1, &particleVAO);
-	glGenBuffers(1, &particleVBO);
-
-	glBindVertexArray(particleVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
-	glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_STATIC_DRAW);
-
-	// 设置顶点属性指针
-	// 生命周期属性
-	glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, lifeTime));
-	glEnableVertexAttribArray(0);
-	// 开始位置属性
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, startPos));
-	glEnableVertexAttribArray(1);
-	// 结束位置属性
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, endPos));
-	glEnableVertexAttribArray(2);
-
-	// 取消绑定 VBO 和 VAO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	for (int i = 0; i < 2; i++)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, particleVBOs[i]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Particle) * numParticles, particles.data(), GL_DYNAMIC_COPY);
+	}
 
 	//initialize time
 	float curTime = 1.0f;
 
 	// render loop
-	while (!glfwWindowShouldClose(window))
+	int loop = 0;
+	double sumTime = 0;
+	GLuint curSrcIndex = 0;
+	while (!glfwWindowShouldClose(window) && loop<10000)
 	{
+		loop++;
+		double startTime = getCurrentTime();
 		curTime += 0.0001;
 		// input
 		processInput(window);
@@ -128,19 +120,30 @@ int main()
 
 		//render point sprites
 		particleShader.use();
+		GLuint srcVBO = particleVBOs[curSrcIndex];
+		GLuint dstVBO = particleVBOs[(curSrcIndex + 1) % 2];
+		glGenVertexArrays(1, &particleVAO);
+
+		glBindVertexArray(particleVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
+		glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_STATIC_DRAW);
+
+		// set attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, Pos));
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, Vel));
+		glEnableVertexAttribArray(1);
+
+		// unbind 
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
 		if (curTime >= 1.0f)
 		{
 			float centerPos[3];
 			float color[4];
 
 			curTime = 0.0f;
-
-			// Pick a new start location and color
-			centerPos[0] = ((float)(rand() % 10000) / 10000.0f) - 0.5f;
-			centerPos[1] = ((float)(rand() % 10000) / 10000.0f) - 0.5f;
-			centerPos[2] = ((float)(rand() % 10000) / 10000.0f) - 0.5f;
-
-			particleShader.setVec3("u_centerPosition", centerPos[0], centerPos[1], centerPos[2]);
 
 			// Random color
 			color[0] = ((float)(rand() % 10000) / 20000.0f) + 0.5f;
@@ -154,18 +157,29 @@ int main()
 		// Load uniform time variable
 		particleShader.setFloat("u_time",curTime);
 
+
 		glBindVertexArray(particleVAO);
-		glPointSize(4.0f);
+		glBeginTransformFeedback(GL_POINTS);
+		glPointSize(2.0f);
 		glDrawArrays(GL_POINTS, 0, numParticles);
+		glEndTransformFeedback();
+		double endTime = getCurrentTime();
+		// compute render time
+		double renderTime = endTime - startTime;
+		sumTime += renderTime;
+		curSrcIndex = (curSrcIndex + 1) % 2;
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+	double averageTime = sumTime / loop;
+	std::cout << "Average Render time: " << averageTime << std::endl;
+
 
 	// optional: de-allocate all resources once they've outlived their purpose:
 	glDeleteVertexArrays(1, &particleVAO);
-	glDeleteBuffers(1, &particleVBO);
+	glDeleteBuffers(2, particleVBOs);
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	glfwTerminate();
