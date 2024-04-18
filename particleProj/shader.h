@@ -15,7 +15,7 @@ public:
     unsigned int ID;
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
-    Shader(const char* vertexPath, const char* fragmentPath, const char** varyings,GLint numVaryings = 0, const char* geometryPath = nullptr)
+    Shader(const char* vertexPath, const char* fragmentPath, const char** varyings = nullptr,GLint numVaryings = 0, const char* geometryPath = nullptr)
     {
         // 1. retrieve the vertex/fragment source code from filePath
         std::string vertexCode;
@@ -90,6 +90,7 @@ public:
 
         if (varyings != nullptr) {
             glTransformFeedbackVaryings(ID, numVaryings,varyings, GL_INTERLEAVED_ATTRIBS);
+            //GL_INTERLEAVED_ATTRIBS 表示这些varyings的值将被交错存储在缓冲区中，而 GL_SEPARATE_ATTRIBS 表示它们将被存储在缓冲区的不同部分。
         }
 
         glLinkProgram(ID);

@@ -21,18 +21,30 @@
     <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c">
       <Filter>源文件</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="particle.frag">
-      <Filter>资源文件</Filter>
-    </Text>
-    <Text Include="particle.vert">
-      <Filter>资源文件</Filter>
-    </Text>
+    <ClCompile Include="Noise3D.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shader.h">
       <Filter>源文件</Filter>
     </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="emit.vert">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="emit.frag">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="draw.frag">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="draw.vert">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
 </Project>

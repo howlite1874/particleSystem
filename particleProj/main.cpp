@@ -1,202 +1,279 @@
-#include <glad/glad.h>
-#include <glfw3.h>
 #include <iostream>
-#include <glm/glm.hpp>
-#include <glm/gtc/random.hpp>
 #include <vector>
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <filesystem>
+
 #include "shader.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "Noise3D.c"
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+const unsigned int WINDOW_WIDTH = 800;
+const unsigned int WINDOW_HEIGHT = 600;
 
-// settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
-
-const int numParticles = 1000;
-const int particleSize = 7;
-
-// Particle VBOs
-GLuint particleVBOs[2];
-
-double getCurrentTime() {
-	return glfwGetTime();
-}
-
+const unsigned int NUM_PARTICLES = 200;
 
 struct Particle {
-	glm::vec3 Pos;
-	glm::vec3 Vel;
+    glm::vec3 position;
+    glm::vec3 velocity;
+    float size;
+    float lifetime;
+    float curtime;
+
+    Particle() : position(0.0f), velocity(0.0f), lifetime(0.0f) {}
+    Particle(glm::vec3 pos, glm::vec3 vel) : position(pos), velocity(vel) {}
 };
 
-std::vector<Particle> generateParticleData() {
-	std::vector<Particle> particles;
-	particles.resize(numParticles);
+std::vector<Particle> particles;
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
-	// position
-	for (int i = 0; i < numParticles; ++i) {
-		float x = ((float)(rand() % 10000) / 4000.0f) - 1.f;
-		float y = ((float)(rand() % 10000) / 4000.0f) - 1.f;
-		float z = ((float)(rand() % 10000) / 4000.0f) - 1.f;
-		glm::vec3 position = glm::vec3(x, y, z);
-		particles[i].Pos = position;
-	}
-
-	// velocity
-	for (int i = 0; i < numParticles; ++i) {
-		float x = ((float)(rand() % 10000) / 40000.0f);
-		float y = ((float)(rand() % 10000) / 40000.0f);
-		float z = ((float)(rand() % 10000) / 40000.0f);
-		glm::vec3 velocity = glm::vec3(x, y, z);
-		particles[i].Vel = velocity;
-	}
-
-	return particles;
+GLuint loadTexture(std::filesystem::path filePath) {
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // set the texture wrapping parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	// set texture wrapping to GL_REPEAT (default wrapping method)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // set texture filtering parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // load image, create texture and generate mipmaps
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
+    // The FileSystem::getPath(...) is part of the GitHub repository so we can find files on any IDE/platform; replace it with your own image path.
+    unsigned char* data = stbi_load(filePath.string().c_str(), &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
+    return texture;
 }
 
-int main()
-{
-	// glfw: initialize and configure
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	// glfw window creation
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Partciel System", NULL, NULL);
-	if (window == NULL)
-	{
-		std::cout << "Failed to create GLFW window" << std::endl;
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-	// glad: load all OpenGL function pointers
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-	{
-		std::cout << "Failed to initialize GLAD" << std::endl;
-		return -1;
-	}
-
-	// build and compile our shader program
-	const char* feedbackVaryings[1] =
-	{
-	   "vPos",
-	};
-	Shader particleShader("particle.vert", "particle.frag", feedbackVaryings,1);
-
-	// generate particle data
-	std::vector<Particle> particles = generateParticleData();
-	unsigned int particleVAO;
-	glGenBuffers(2, &particleVBOs[0]);
-
-	for (int i = 0; i < 2; i++)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, particleVBOs[i]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Particle) * numParticles, particles.data(), GL_DYNAMIC_COPY);
-	}
-
-	//initialize time
-	float curTime = 1.0f;
-
-	// render loop
-	int loop = 0;
-	double sumTime = 0;
-	GLuint curSrcIndex = 0;
-	while (!glfwWindowShouldClose(window) && loop<10000)
-	{
-		loop++;
-		double startTime = getCurrentTime();
-		curTime += 0.0001;
-		// input
-		processInput(window);
-
-		// render
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		//render point sprites
-		particleShader.use();
-		GLuint srcVBO = particleVBOs[curSrcIndex];
-		GLuint dstVBO = particleVBOs[(curSrcIndex + 1) % 2];
-		glGenVertexArrays(1, &particleVAO);
-
-		glBindVertexArray(particleVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
-		glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(Particle), particles.data(), GL_STATIC_DRAW);
-
-		// set attribute
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, Pos));
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, Vel));
-		glEnableVertexAttribArray(1);
-
-		// unbind 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-
-		if (curTime >= 1.0f)
-		{
-			float centerPos[3];
-			float color[4];
-
-			curTime = 0.0f;
-
-			// Random color
-			color[0] = ((float)(rand() % 10000) / 20000.0f) + 0.5f;
-			color[1] = ((float)(rand() % 10000) / 20000.0f) + 0.5f;
-			color[2] = ((float)(rand() % 10000) / 20000.0f) + 0.5f;
-			color[3] = 0.5;
-
-			particleShader.setVec4("u_color", color[0], color[1], color[2], color[3]);
-		}
-
-		// Load uniform time variable
-		particleShader.setFloat("u_time",curTime);
-
-
-		glBindVertexArray(particleVAO);
-		glBeginTransformFeedback(GL_POINTS);
-		glPointSize(2.0f);
-		glDrawArrays(GL_POINTS, 0, numParticles);
-		glEndTransformFeedback();
-		double endTime = getCurrentTime();
-		// compute render time
-		double renderTime = endTime - startTime;
-		sumTime += renderTime;
-		curSrcIndex = (curSrcIndex + 1) % 2;
-
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-	double averageTime = sumTime / loop;
-	std::cout << "Average Render time: " << averageTime << std::endl;
-
-
-	// optional: de-allocate all resources once they've outlived their purpose:
-	glDeleteVertexArrays(1, &particleVAO);
-	glDeleteBuffers(2, particleVBOs);
-
-	// glfw: terminate, clearing all previously allocated GLFW resources.
-	glfwTerminate();
-	return 0;
+void initParticles() {
+    particles.resize(5000);
+    for (size_t i = 0; i < particles.size(); ++i) {
+        particles[i].position = glm::vec3(0,0,0);
+        particles[i].velocity = glm::vec3(0,0,0);
+        particles[i].size = 0.0f;
+        particles[i].lifetime = 0.0f;
+        particles[i].curtime = 0.0f;
+    }
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-void processInput(GLFWwindow* window)
+void SetupVertexAttributes(GLuint vboID)
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, true);
+    glBindBuffer(GL_ARRAY_BUFFER, vboID);
+
+    //position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    //velocity
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    //size
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    //lifetime
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)(7 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+
+    //curtime
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(4);
+
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-	// make sure the viewport matches the new window dimensions; note that width and 
-	// height will be significantly larger than specified on retina displays.
-	glViewport(0, 0, width, height);
+int main() {
+    // Initialize GLFW
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW" << std::endl;
+        return -1;
+    }
+
+    // Create a windowed mode window and its OpenGL context
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Particle System", NULL, NULL);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+
+    // Make the window's context current
+    glfwMakeContextCurrent(window);
+
+    // Initialize GLAD
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+
+    //shader
+    // 在初始化时指定要捕获的varying变量
+    const char* feedbackVaryings[] = { "outPos","outVel","outSize","outLifetime","outCurtime"};
+
+    Shader emitShader("emit.vert", "emit.frag", feedbackVaryings, 5);
+    Shader drawShader("draw.vert", "draw.frag");
+
+    // 初始化粒子
+    initParticles();
+
+    GLuint curSrcIndex = 0;
+
+    std::filesystem::path filePath = "textures/smoke.tga";
+    GLuint textureId = loadTexture(filePath);
+
+    GLuint noiseTextureId = Create3DNoiseTexture(128, 50.0);
+
+    unsigned int particleVBO[2];
+    glGenBuffers(2, &particleVBO[0]);
+    for (int i = 0; i < 2; i++)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, particleVBO[i]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Particle) * NUM_PARTICLES,particles.data(), GL_DYNAMIC_COPY);
+    }
+
+    float uTime = 0.f;
+    GLsync emitSync;
+    unsigned int myTBOquery;
+
+    // Loop until the user closes the window
+            // Bind the texture
+
+    while (!glfwWindowShouldClose(window)) {
+        //---------------------------------------------------emit particles--------------------------------------------------------
+        uTime += 0.001;
+        //读取
+        GLuint srcVBO = particleVBO[curSrcIndex];
+        //输出
+        GLuint dstVBO = particleVBO[(curSrcIndex + 1) % 2];
+
+        emitShader.use();
+
+        SetupVertexAttributes(srcVBO);
+
+        // Set transform feedback buffer,feedback buffer info destination
+        glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, dstVBO);
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, dstVBO);
+
+        // 启用变换反馈,禁止绘制
+        glEnable(GL_RASTERIZER_DISCARD);
+
+        emitShader.setFloat("u_time", uTime);
+        emitShader.setFloat("u_emissionRate", 0.3);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_3D,noiseTextureId);
+        emitShader.setInt("s_noiseTex", 0);
+
+        glGenQueries(1, &myTBOquery);
+        // 开始变换反馈
+        glBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, myTBOquery);
+        glBeginTransformFeedback(GL_POINTS);
+
+        // 绘制粒子
+        glDrawArrays(GL_POINTS, 0, particles.size());
+
+        // 结束变换反馈
+        glEndTransformFeedback();
+        glEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
+        unsigned int numEdgesFedBack;
+        glGetQueryObjectuiv(myTBOquery, GL_QUERY_RESULT, &numEdgesFedBack);
+        std::cout << numEdgesFedBack<<std::endl;
+
+        // 绑定缓冲区对象
+        glBindBuffer(GL_ARRAY_BUFFER, dstVBO);
+
+        // 映射缓冲区对象到客户端内存
+        void* dataPtr = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+        if (dataPtr != nullptr) {
+            float* dataArray = static_cast<float*>(dataPtr);
+            for (int i = 0; i < 9; ++i) {
+                std::cout << "Data[" << i << "] = " << dataArray[i] << std::endl;
+            }
+
+            // 取消映射缓冲区对象
+            glUnmapBuffer(GL_ARRAY_BUFFER);
+        }
+        else {
+            // 映射失败，处理错误
+            std::cerr << "Failed to map buffer object" << std::endl;
+        }
+
+        // 解绑缓冲区对象
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        // Create a sync object to ensure transform feedback results are completed before the draw that uses them.
+        emitSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+        // 禁用变换反馈，开启绘制
+        glDisable(GL_RASTERIZER_DISCARD);
+
+        //取消绑定
+        glUseProgram(0);
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        //ping pong the buffers
+        curSrcIndex = (curSrcIndex + 1) % 2;
+
+        //---------------------------------------------------draw start--------------------------------------------------------
+        // Block the GL server until transform feedback results are completed
+        glWaitSync(emitSync, 0, GL_TIMEOUT_IGNORED);
+        glDeleteSync(emitSync);
+
+        // Set the viewport
+        glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+        // Clear the color buffer
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(1, 1, 1, 0);
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        glEnable(0x8861);
+        
+        drawShader.use();   
+
+        SetupVertexAttributes(particleVBO[curSrcIndex]);
+
+        //unifrom set
+        drawShader.setFloat("u_time", uTime);
+        drawShader.setVec3("u_acceleration", glm::vec3(0,-1,0));
+        drawShader.setVec4("u_color",glm::vec4(1.0f));
+        drawShader.setInt("s_texture", 0);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        //Blend particles
+        glEnable(GL_BLEND);
+        //和背景颜色的alpha混合
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glPointSize(10.0f);
+        glDrawArrays(GL_POINTS, 0, NUM_PARTICLES);
+        //------------------------------------------------ draw end---------------------------------------------------------------------------
+        // Swap front and back buffers
+        glfwSwapBuffers(window);
+
+        // Poll for and process events
+        glfwPollEvents();
+    }
+
+    // Clean up
+    glDeleteBuffers(2, &particleVBO[0]);
+    glfwTerminate();
+    return 0;
 }

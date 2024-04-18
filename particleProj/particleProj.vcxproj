@@ -23,7 +23,7 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{325f1e5a-c0a8-44cd-8386-4e3fd3eea563}</ProjectGuid>
     <RootNamespace>particleProj</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -74,6 +74,10 @@
     <IncludePath>C:\Users\m01002\Downloads\glad\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\lib-vc2022;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\Users\m01002\Downloads\glm[1]\glm;C:\Users\m01002\Downloads\glad\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -108,13 +112,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\m01002\source\repos\particleProj\particleProj\glm;C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\include\GLFW;C:\Users\m01002\Downloads\glew-2.2.0-win32\glew-2.2.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\m01002\source\repos\particleProj\particleProj\glm;C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\m01002\Downloads\glew-2.2.0-win32\glew-2.2.0\lib\Release\x64;C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\m01002\Downloads\glew-2.2.0-win32\glew-2.2.0\lib;C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\lib-vc2022;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -125,24 +131,33 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>C:\Users\m01002\Downloads\glfw-3.4.bin.WIN64\glfw-3.4.bin.WIN64\lib-vc2022;C:\Users\m01002\Downloads\glew-2.2.0-win32\glew-2.2.0\lib\Release\x64;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c" />
     <ClCompile Include="main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="particle.frag" />
-    <Text Include="particle.vert" />
+    <ClCompile Include="Noise3D.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shader.h" />
+    <ClInclude Include="stb_image.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="draw.frag" />
+    <None Include="draw.vert" />
+    <None Include="emit.frag" />
+    <None Include="emit.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
